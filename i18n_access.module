@@ -6,20 +6,22 @@
  * file_description
  */
 
+define('I18N_ACCESS_LANGUAGE_NEUTRAL', 'NEUTRAL');
+
 /**
  * Implementation of hook_user().
  */
 function i18n_access_user($op, &$edit, &$account, $category = NULL) {
-  if ($op == 'form' && $category == 'account') {
+  if (($op == 'form' && $category == 'account') || $op == 'register') {
     $form['i18n_access'] = array(
       '#type' => 'fieldset',
       '#title' => t('Translation access'),
       '#tree' => 0,
+      '#access' => user_access('administer users'),
     );
     $form['i18n_access']['i18n_access'] = array(
       '#type' => 'checkboxes',
-      '#options' => array('NEUTRAL' => t('Language neutral')) + locale_language_list('name'),
-      '#access' => user_access('adminster users'),
+      '#options' => array(I18N_ACCESS_LANGUAGE_NEUTRAL => t('Language neutral')) + locale_language_list('name'),
       '#default_value' => i18n_access_load_permissions($account->uid),
       '#description' => t('Select the languages that this user should have permission to create and edit content for.'),
     );
@@ -69,11 +71,14 @@ function i18n_access_load_permissions($uid = NULL) {
 function i18n_access_form_alter(&$form, $form_state, $form_id) {
   // Remove inaccessible languages from the select box
   if (isset($form['#id']) && $form['#id'] == 'node-form' && is_array($form['language']['#options'])) {
-    $perms = i18n_access_load_permissions();
-    foreach ($form['language']['#options'] as $key => $value) {
-      $perm_key = ($key == '') ? 'NEUTRAL' : $key;
-      if (!$perms[$perm_key]) {
-        unset($form['language']['#options'][$key]);
+    // don't do it form admininstrators
+    if (!user_access('administer nodes')) {
+      $perms = i18n_access_load_permissions();
+      foreach ($form['language']['#options'] as $key => $value) {
+        $perm_key = ($key == '') ? I18N_ACCESS_LANGUAGE_NEUTRAL : $key;
+        if (!$perms[$perm_key]) {
+          unset($form['language']['#options'][$key]);
+        }
       }
     }
   }
@@ -96,6 +101,16 @@ function i18n_access_node_access($op, $node, $account = NULL) {
   $access = node_access($op, $node, $account);
   if (!$access) {
     return FALSE;
+  }
+
+  // This module doesn't deal with view permissions
+  if ($op == 'view') {
+    return TRUE;
+  }
+
+  // make sure that administrators always have access
+  if (user_access('administer nodes', $account)) {
+    return TRUE;
   }
 
   $perms = i18n_access_load_permissions($account->uid);
