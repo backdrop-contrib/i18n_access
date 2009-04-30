@@ -1,5 +1,4 @@
 <?php
- */They are grouped by secondary tabs on CCK's 'Display fields' screens.
 // $Id$
 
 /**
@@ -113,6 +112,8 @@ function i18n_access_node_access($op, $node, $account = NULL) {
   if (user_access('administer nodes', $account)) {
     return TRUE;
   }
+
+  $perms = i18n_access_load_permissions($account->uid);
 
   // Make sure to use the language neutral constant if node language is empty
   $langcode = $node->language ? $node->language : I18N_ACCESS_LANGUAGE_NEUTRAL;
