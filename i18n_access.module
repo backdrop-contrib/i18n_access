@@ -1,4 +1,5 @@
 <?php
+ */They are grouped by secondary tabs on CCK's 'Display fields' screens.
 // $Id$
 
 /**
@@ -113,9 +114,10 @@ function i18n_access_node_access($op, $node, $account = NULL) {
     return TRUE;
   }
 
-  $perms = i18n_access_load_permissions($account->uid);
+  // Make sure to use the language neutral constant if node language is empty
+  $langcode = $node->language ? $node->language : I18N_ACCESS_LANGUAGE_NEUTRAL;
 
-  return (boolean)$perms[$node->language];
+  return (boolean)$perms[$langcode];
 }
 
 /**
@@ -179,9 +181,3 @@ function i18n_access_translation_node_overview($node) {
   drupal_set_title(t('Translations of %title', array('%title' => $node->title)));
   return theme('table', $header, $rows);
 }
-
-
-
-
-
-
