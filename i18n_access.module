@@ -62,7 +62,19 @@ function i18n_access_load_permissions($uid = NULL) {
     }
   }
 
+  // adding the default languages if permission has been granted
+  if (user_access('access selected languages')) {
+    $perms[$uid] = array_merge($perms[$uid], drupal_map_assoc(variable_get('i18n_access_languages', array())));
+  }
+  
   return $perms[$uid];
+}
+
+/**
+ * Implementation of hook_perm()
+ */
+function i18n_access_perm() {
+  return array('access selected languages');
 }
 
 /**
@@ -181,4 +193,39 @@ function i18n_access_translation_node_overview($node) {
 
   drupal_set_title(t('Translations of %title', array('%title' => $node->title)));
   return theme('table', $header, $rows);
+}
+
+/**
+ * Implementation of hook_menu()
+ */
+function i18n_access_menu() {
+  $items = array();
+
+  $items['admin/settings/language/access'] = array(
+    'title' => t('Access'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('i18n_access_admin_settings'),
+    'access arguments' => array('administer site configuration'),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 10,
+  );
+ 
+  return $items;
+}
+ 
+/**
+ * Admin settings form
+ */ 
+function i18n_access_admin_settings() {
+
+  $form['i18n_access_languages'] = array(
+    '#title' => t('Select the default access languages'),
+    '#type' => 'select',
+    '#multiple' => 'true',
+    '#options' => array(I18N_ACCESS_LANGUAGE_NEUTRAL => t('Language neutral')) + locale_language_list('name'),
+    '#default_value' => variable_get('i18n_access_languages', array()),
+    '#description' => t("This selection of languages will be connected with the 'access selected languages' permission which you can use to grant a role access to these languages at once.")
+  );
+ 
+  return system_settings_form($form);
 }
