@@ -82,13 +82,13 @@ function i18n_access_perm() {
  */
 function i18n_access_form_alter(&$form, $form_state, $form_id) {
   // Remove inaccessible languages from the select box
-  if (isset($form['#id']) && $form['#id'] == 'node-form' && is_array($form['language']['#options'])) {
+  if (isset($form['#id']) && $form['#id'] == 'node-form' && isset($form['language']['#options'])) {
     // don't do it form admininstrators
     if (!user_access('administer nodes')) {
       $perms = i18n_access_load_permissions();
       foreach ($form['language']['#options'] as $key => $value) {
         $perm_key = ($key == '') ? I18N_ACCESS_LANGUAGE_NEUTRAL : $key;
-        if (!$perms[$perm_key]) {
+        if (empty($perms[$perm_key])) {
           unset($form['language']['#options'][$key]);
         }
       }
@@ -130,7 +130,7 @@ function i18n_access_node_access($op, $node, $account = NULL) {
   // Make sure to use the language neutral constant if node language is empty
   $langcode = $node->language ? $node->language : I18N_ACCESS_LANGUAGE_NEUTRAL;
 
-  return (boolean)$perms[$langcode];
+  return isset($perms[$langcode]) ? (bool) $perms[$langcode] : FALSE;
 }
 
 /**
