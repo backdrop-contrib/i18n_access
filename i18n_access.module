@@ -97,7 +97,6 @@ function i18n_access_form_alter(&$form, $form_state, $form_id) {
   
   //Configuring locale search form to limit it to domain language
   if ($form['#id'] == 'locale-translate-seek-form' && !user_access('administer nodes') && user_access('translate interface')) {
-      
     $perms = i18n_access_load_permissions();
 
     foreach ($form['search']['language']['#options'] as $key => $value) {
@@ -111,24 +110,23 @@ function i18n_access_form_alter(&$form, $form_state, $form_id) {
   //Configuring translation edit form to limit it to allowed language
   if ($form['#id'] == 'locale-translate-edit-form' && !user_access('administer nodes') && user_access('translate interface')) {
     
-     $perms = i18n_access_load_permissions();
-     $form['translations'] = array('#tree' => TRUE);
-     $lid = arg(4); 
+    $perms = i18n_access_load_permissions();
+    $form['translations'] = array('#tree' => TRUE);
+    $lid = arg(4); 
     
-     foreach($perms as $language) {  
-       
-       $form['translations'][$language] = array(
-         '#type' => 'textarea',
-         '#title' => locale_language_name($language),
-         '#rows' => 3,
-         '#default_value' => '',
-       ); 
+    foreach($perms as $language) {  
+      $form['translations'][$language] = array(
+        '#type' => 'textarea',
+        '#title' => locale_language_name($language),
+        '#rows' => 3,
+        '#default_value' => '',
+      ); 
                 
-       $result = db_query("SELECT DISTINCT translation FROM {locales_target} WHERE lid = %d AND language = '%s'", $lid, $language);
-       while ($translation = db_fetch_object($result)) {
-          $form['translations'][$language]['#default_value'] = $translation->translation;
-       }
-     }  
+      $result = db_query("SELECT DISTINCT translation FROM {locales_target} WHERE lid = %d AND language = '%s'", $lid, $language);
+      while ($translation = db_fetch_object($result)) {
+         $form['translations'][$language]['#default_value'] = $translation->translation;
+      }
+    }  
   }  
 }
 
