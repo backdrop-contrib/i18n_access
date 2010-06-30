@@ -101,7 +101,7 @@ function i18n_access_form_alter(&$form, $form_state, $form_id) {
 
     foreach ($form['search']['language']['#options'] as $key => $value) {
       $perm_key = ($key == '') ? I18N_ACCESS_LANGUAGE_NEUTRAL : $key;
-      if (!$perms[$perm_key]) {
+      if (!isset($perms[$perm_key])) {
         unset($form['search']['language']['#options'][$key]);
       }
     }
@@ -111,22 +111,12 @@ function i18n_access_form_alter(&$form, $form_state, $form_id) {
   if ($form['#id'] == 'locale-translate-edit-form' && !user_access('administer nodes') && user_access('translate interface')) {
     
     $perms = i18n_access_load_permissions();
-    $form['translations'] = array('#tree' => TRUE);
-    $lid = arg(4); 
     
-    foreach($perms as $language) {  
-      $form['translations'][$language] = array(
-        '#type' => 'textarea',
-        '#title' => locale_language_name($language),
-        '#rows' => 3,
-        '#default_value' => '',
-      ); 
-                
-      $result = db_query("SELECT DISTINCT translation FROM {locales_target} WHERE lid = %d AND language = '%s'", $lid, $language);
-      while ($translation = db_fetch_object($result)) {
-         $form['translations'][$language]['#default_value'] = $translation->translation;
-      }
-    }  
+    foreach($form['translations'] as $language => $translation) {  
+      if (!isset($perms[$language]) && $language != '#tree') {
+        unset($form['translations'][$language]);
+      }                
+    }
   }  
 }
 
@@ -135,7 +125,7 @@ function i18n_access_form_alter(&$form, $form_state, $form_id) {
  *
  * @see node_access()
  */
-function _i18n_access_node_access($op, $node, $account = NULL) {
+function _i18n_access_node_access($op, $node = NULL, $account = NULL) {
   global $user;
 
   // If no user object is supplied, the access check is for the current user.
