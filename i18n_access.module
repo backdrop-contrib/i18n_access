@@ -21,7 +21,7 @@ function i18n_access_user($op, &$edit, &$account, $category = NULL) {
     $form['i18n_access']['i18n_access'] = array(
       '#type' => 'checkboxes',
       '#options' => array(I18N_ACCESS_LANGUAGE_NEUTRAL => t('Language neutral')) + locale_language_list('name'),
-      '#default_value' => i18n_access_load_permissions($account->uid),
+      '#default_value' => i18n_access_load_permissions($account),
       '#description' => t('Select the languages that this user should have permission to create and edit content for.'),
     );
 
@@ -43,30 +43,30 @@ function i18n_access_user($op, &$edit, &$account, $category = NULL) {
 /**
  * Load the language permissions for a given user
  */
-function i18n_access_load_permissions($uid = NULL) {
+function i18n_access_load_permissions($account = NULL) {
   static $perms = array();
 
   // use the global user id if none is passed
-  if (!isset($uid)) {
-    $uid = $GLOBALS['user']->uid;
+  if (!isset($account)) {
+    $account = $GLOBALS['user'];
   }
 
-  if (!isset($perms[$uid])) {
-    $perm_string = db_result(db_query('SELECT perm FROM {i18n_access} WHERE uid = %d', $uid));
+  if (!isset($perms[$account->uid])) {
+    $perm_string = db_result(db_query('SELECT perm FROM {i18n_access} WHERE uid = %d', $account->uid));
     if ($perm_string) {
-      $perms[$uid] = drupal_map_assoc(explode(', ', $perm_string));
+      $perms[$account->uid] = drupal_map_assoc(explode(', ', $perm_string));
     }
     else {
-      $perms[$uid] = array();
+      $perms[$account->uid] = array();
     }
   }
 
   // adding the default languages if permission has been granted
-  if (user_access('access selected languages', $uid)) {
-    $perms[$uid] = array_merge($perms[$uid], drupal_map_assoc(variable_get('i18n_access_languages', array())));
+  if (user_access('access selected languages', $account)) {
+    $perms[$account->uid] = array_merge($perms[$account->uid], drupal_map_assoc(variable_get('i18n_access_languages', array())) );
   }
   
-  return $perms[$uid];
+  return $perms[$account->uid];
 }
 
 /**
@@ -148,7 +148,7 @@ function _i18n_access_node_access($op, $node = NULL, $account = NULL) {
     return TRUE;
   }
 
-  $perms = i18n_access_load_permissions($account->uid);
+  $perms = i18n_access_load_permissions($account);
 
   // Make sure to use the language neutral constant if node language is empty
   $langcode = $node->language ? $node->language : I18N_ACCESS_LANGUAGE_NEUTRAL;
