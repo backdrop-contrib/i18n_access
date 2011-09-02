@@ -215,7 +215,11 @@ function i18n_access_translation_node_overview($node) {
   }
 
   drupal_set_title(t('Translations of %title', array('%title' => $node->title)));
-  return theme('table', $header, $rows);
+  $output = theme('table', $header, $rows);
+  if (user_access('administer translations')) {
+    $output .= drupal_get_form('i18n_node_select_translation', $node, $translations);
+  }
+  return $output;
 }
 
 /**
