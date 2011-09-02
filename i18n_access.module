@@ -104,7 +104,7 @@ function i18n_access_form_alter(&$form, $form_state, $form_id) {
         unset($form['search']['language']['#options'][$key]);
       }
     }
-  }	
+  }
   
   //Configuring translation edit form to limit it to allowed language
   if ($form['#id'] == 'locale-translate-edit-form' && !user_access('administer nodes') && user_access('translate interface')) {
@@ -132,8 +132,15 @@ function _i18n_access_node_access($op, $node = NULL, $account = NULL) {
     $account = $user;
   }
 
-  // Bypass completely if node_access returns false.
-  $access = node_access($op, $node, $account);
+  // if revisioning is enabled, check revision access
+  if (function_exists('_revisioning_node_revision_access')) {
+    $access = _revisioning_view_edit_access_callback($op, $node, $account);
+  } 
+  // else check node_access
+  else {
+    $access = node_access($op, $node, $account);
+  }
+  // Bypass completely if access returns false.
   if (!$access) {
     return FALSE;
   }
