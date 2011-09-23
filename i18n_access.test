@@ -82,12 +82,12 @@ class i18nAccessTestCase extends DrupalWebTestCase {
   function setLanguagePermissions($account, $languages = array()) {
     $this->assertTrue(user_access('administer users'), t('User has permission to administer users'));
 
-    foreach($languages as $langcode) {
-      $key = 'i18n_access['. $langcode .']';
+    foreach ($languages as $langcode) {
+      $key = 'i18n_access[' . $langcode . ']';
       $edit[$key] = $langcode;
       $expected[$langcode] = $langcode;
     }
-    $this->drupalPost('user/'. $account->uid .'/edit', $edit, t('Save'));
+    $this->drupalPost('user/' . $account->uid . '/edit', $edit, t('Save'));
 
     $actual = i18n_access_load_permissions($account->uid);
     $this->assertEqual($expected, $actual, t('Language permissions set correctly.'), 'i18n_access');
@@ -158,7 +158,7 @@ class i18nAccessTestCase extends DrupalWebTestCase {
   }
 
   function dsm($object) {
-    $this->error('<pre>'.check_plain(print_r($object,1)).'</pre>');
+    $this->error('<pre>' . check_plain(print_r($object, 1)) . '</pre>');
   }
 
   /**

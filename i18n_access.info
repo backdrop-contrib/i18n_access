@@ -1,7 +1,7 @@
 name = Translation Access
 description = Control access to creating content in different languages.
 package = Multilanguage
-core = 6.x
+core = 7.x
 
 dependencies[] = locale
 dependencies[] = translation
