@@ -2,55 +2,42 @@
 
 /**
  * @file
- * file_description
+ * i18n_access.module
  */
-
-define('I18N_ACCESS_LANGUAGE_NEUTRAL', 'NEUTRAL');
 
 /**
  * Implements hook_user_insert().
  */
-function i18n_access_user_insert(&$edit, &$account, $category = NULL) {
-  if ($category == 'account') {
-    // see user_admin_perm_submit()
-    if (isset($edit['i18n_access'])) {
-      db_delete('i18n_access')
-        ->condition('uid', $account->uid)
-        ->execute();
-      $edit['i18n_access'] = array_filter($edit['i18n_access']);
-      if (count($edit['i18n_access'])) {
-        db_insert('i18n_access')
-          ->fields(array(
-          'uid' => $account->uid,
-          'perm' => implode(', ', array_keys($edit['i18n_access'])),
-        ))->execute();
-      }
-      unset($edit['i18n_access']);
-    }
-  }
+function i18n_access_user_insert($account) {
+  i18n_access_user_update($account);
 }
 
 /**
  * Implements hook_user_update().
  */
-function i18n_access_user_update(&$edit, &$account, $category = NULL) {
-  if ($category == 'account') {
-    // see user_admin_perm_submit()
-    if (isset($edit['i18n_access'])) {
-      db_delete('i18n_access')
-        ->condition('uid', $account->uid)
-        ->execute();
-      $edit['i18n_access'] = array_filter($edit['i18n_access']);
-      if (count($edit['i18n_access'])) {
-        db_insert('i18n_access')
-          ->fields(array(
-          'uid' => $account->uid,
-          'perm' => implode(', ', array_keys($edit['i18n_access'])),
-        ))->execute();
-      }
-      unset($edit['i18n_access']);
+function i18n_access_user_update($account) {
+  if (!empty($account->i18n_access)) {
+    db_delete('i18n_access')
+      ->condition('uid', $account->uid)
+      ->execute();
+    $user_i18n_access = array_filter($account->i18n_access);
+    if (count($user_i18n_access)) {
+      db_insert('i18n_access')
+        ->fields(array(
+        'uid' => $account->uid,
+        'perm' => implode(', ', array_keys($user_i18n_access)),
+      ))->execute();
     }
   }
+}
+
+/**
+ * Implements hook_user_delete().
+ */
+function i18n_access_user_delete($account) {
+  db_delete('i18n_access')
+    ->condition('uid', $account->uid)
+    ->execute();
 }
 
 /**
@@ -58,16 +45,17 @@ function i18n_access_user_update(&$edit, &$account, $category = NULL) {
  */
 function i18n_access_config_info() {
   $prefixes['i18n_access.settings'] = array(
-    'label' => t('Module name settings'),
+    'label' => t('Translation Access settings'),
     'group' => t('Configuration'),
   );
+  return $prefixes;
 }
 
 /**
  * Load the language permissions for a given user
  */
 function i18n_access_load_permissions($uid = NULL) {
-  static $perms = array();
+  $perms = &backdrop_static(__FUNCTION__);
 
   // use the global user id if none is passed
   if (!isset($uid)) {
@@ -104,7 +92,7 @@ function i18n_access_permission() {
   return array(
     'access selected languages' => array(
       'title' => t('Access selected languages'),
-      'description' => t('access selected languages.'),
+      'description' => t('This permission gives this role edit/delete access to all content which are in the <a href="!url" target="_blank">selected language</a>. View/create access needs a different access level.', array('!url' => url('admin/config/regional/language/access'))),
     ),
   );
 }
@@ -113,33 +101,36 @@ function i18n_access_permission() {
  * Implements hook_form_node_form_alter().
  */
 function i18n_access_form_node_form_alter(&$form, &$form_state, $form_id) {
-
-  if (isset($form['language']['#options'])) {
-    // Remove inaccessible languages from the select box
-    // don't do it for  admininstrators
-    if (!user_access('administer nodes')) {
-      $perms = i18n_access_load_permissions();
-      foreach ($form['language']['#options'] as $key => $value) {
-        $perm_key = ($key == '') ? I18N_ACCESS_LANGUAGE_NEUTRAL : $key;
-        if ($key != 'en' && empty($perms[$perm_key])) {
-          unset($form['language']['#options']["$key"]);
-        }
-      }
-    }
-    unset($form['#after_build']['0']);
-  }
+  $form['#after_build'][] = '_i18n_access_form_node_form_alter';
 }
+
+/**
+ * Unset languages from language options if user does not have permission to
+ * use.
+ *
+ * @param $form
+ * @param $form_state
+ * @return mixed
+ */
+function _i18n_access_form_node_form_alter(&$form, &$form_state) {
+  if (isset($form['langcode']['#options']) && !user_access('bypass node access')) {
+    $perms = i18n_access_load_permissions();
+    foreach ($form['langcode']['#options'] as $key => $value) {
+      if (empty($perms[$key])) {
+        unset($form['langcode']['#options'][$key]);
+       }
+     }
+   }
+  return $form;
+ }
 
 /**
  * Implements hook_form_alter().
  */
 function i18n_access_form_alter(&$form, &$form_state, $form_id) {
-
   //Configuring translation edit form to limit it to allowed language
-  if ($form_id == 'i18n_node_select_translation' && !user_access('administer nodes')) {
-
+  if ($form_id == 'i18n_node_select_translation' && !user_access('bypass node access')) {
     $perms = i18n_access_load_permissions();
-
     foreach ($form['translations']['nid'] as $language => $translation) {
       if (!isset($perms[$language]) && $language != '#tree') {
         unset($form['translations']['nid'][$language]);
@@ -169,9 +160,9 @@ function i18n_access_form_alter(&$form, &$form_state, $form_id) {
     );
     $form['i18n_access']['i18n_access'] = array(
       '#type' => 'checkboxes',
-      '#options' => array(I18N_ACCESS_LANGUAGE_NEUTRAL => t('Language neutral')) + locale_language_list('name'),
+        '#options' => array(LANGUAGE_NONE => t('Language neutral')) + language_list(FALSE, TRUE),
       '#default_value' => i18n_access_load_permissions($form['#user']->uid),
-      '#description' => t('Select the languages that this user should have permission to create and edit content for.'),
+      '#description' => t('The user gets edit and delete access to all content which are enabled in this list. Create and view needs a different access level.'),
     );
   }
 }
@@ -179,7 +170,7 @@ function i18n_access_form_alter(&$form, &$form_state, $form_id) {
 /**
  * Wrapper around node_access() with additional checks for language permissions.
  *
- * @see node_access()
+ * Implements hook_node_access().
  */
 function i18n_access_node_access($node, $op, $account = NULL) {
   if (is_object($node)) {
@@ -191,29 +182,16 @@ function i18n_access_node_access($node, $op, $account = NULL) {
       $account = $user;
     }
 
-    // Bypass completely if node_access returns false.
-    //TODO $access = node_access($node, $op, $account);
-
-    /* TODO if (!$access) {
-     return FALSE;
-     } */
-
     // This module doesn't deal with view permissions
     if ($op == 'view') {
       return NODE_ACCESS_IGNORE;
     }
 
-    // make sure that administrators always have access
-    if (user_access('administer nodes', $account)) {
-      return TRUE;
-    }
-
     $perms = i18n_access_load_permissions($account->uid);
 
     // Make sure to use the language neutral constant if node language is empty
-    $langcode = $node->language ? $node->language : I18N_ACCESS_LANGUAGE_NEUTRAL;
+    $langcode = $node->langcode ? $node->langcode : LANGUAGE_NONE;
 
-    //return isset($perms[$langcode]) ? (bool) $perms[$langcode] : NODE_ACCESS_DENY;
     return isset($perms[$langcode]) ? NODE_ACCESS_ALLOW : NODE_ACCESS_DENY;
   }
 }
@@ -222,18 +200,26 @@ function i18n_access_node_access($node, $op, $account = NULL) {
  * Implements hook_menu_alter().
  */
 function i18n_access_menu_alter(&$items) {
-  // Replace the translation overview page since we can't hook it.
-  $items['node/%node/translate']['page callback'] = 'i18n_access_translation_node_overview';
+  if (isset($items['node/%node/translate'])) {
+    $items['node/%node/translate']['page callback'] = 'i18n_access_translation_node_overview';
+  }
 }
 
 /**
- * @todo Please document this function.
- * @see http://drupal.org/node/1354
+ * Most logic comes from translation/i18n_node module.
+ *
+ * We removes here only the "add translation" links for languages which are not your selected language.
+ *
+ * @see translation_node_overview
+ * @see i18n_node_translation_overview
+ *
+ * @param object $node
+ *
+ * @return array.
  */
 function i18n_access_translation_node_overview($node) {
 
-  include_once BACKDROP_ROOT . '/includes/language.inc';
-
+  include_once BACKDROP_ROOT . '/core/includes/language.inc';
   if (!empty($node->tnid)) {
     // Already part of a set, grab that set.
     $tnid = $node->tnid;
@@ -245,16 +231,12 @@ function i18n_access_translation_node_overview($node) {
     $translations = array($node->language => $node);
   }
 
-  // TODO This variable was probably removed in Backdrop without replacement.
-  $type = variable_get('translation_language_type', LANGUAGE_TYPE_INTERFACE);
   $header = array(t('Language'), t('Title'), t('Status'), t('Operations'));
-
-  //added from i18n/i18n_node/i18n_node.pages.inc function
+  $rows = array();
   global $user;
   $account = $user;
-  $perms = i18n_access_load_permissions($account->uid);
+  $perms = i18n_access_load_permissions($user->uid);
   //end
-
 
   // Modes have different allowed languages
   foreach (i18n_node_language_list($node) as $langcode => $language_name) {
@@ -283,18 +265,14 @@ function i18n_access_translation_node_overview($node) {
     else {
       // No such translation in the set yet: help user to create it.
       $title = t('n/a');
-      if (node_access('create', $node)) {
+      if (node_access('create', $node->type) && (!empty($perms[$langcode]) || user_access('bypass node access'))) {
         $text = t('add translation');
         $path = 'node/add/' . str_replace('_', '-', $node->type);
         $query = array('query' => array(
             'translation' => $node->nid,
             'target' => $langcode,
           ));
-
-        //condition added from i18n/i18n_node/i18n_node.pages.inc
-        if (in_array($langcode, $perms)) {
-          $options[] = i18n_node_translation_link($text, $path, $langcode, $query);
-        }
+        $options[] = i18n_node_translation_link($text, $path, $langcode, $query);
       }
       $status = t('Not translated');
     }
@@ -320,8 +298,7 @@ function i18n_access_translation_node_overview($node) {
  */
 function i18n_access_menu() {
   $items = array();
-
-  $items['admin/settings/language/access'] = array(
+  $items['admin/config/regional/language/access'] = array(
     'title' => 'Access',
     'page callback' => 'backdrop_get_form',
     'page arguments' => array('i18n_access_admin_settings'),
@@ -329,12 +306,11 @@ function i18n_access_menu() {
     'type' => MENU_LOCAL_TASK,
     'weight' => 10,
   );
-
   return $items;
 }
 
 /**
- * Admin settings form
+ * Admin settings form.
  */
 function i18n_access_admin_settings() {
 
@@ -342,19 +318,10 @@ function i18n_access_admin_settings() {
   $form['i18n_access_languages'] = array(
     '#title' => t('Select the default access languages'),
     '#type' => 'select',
-    '#multiple' => 'true',
-    '#options' => array(I18N_ACCESS_LANGUAGE_NEUTRAL => t('Language neutral')) + locale_language_list('name'),
+    '#multiple' => TRUE,
+    '#options' => array(LANGUAGE_NONE => t('Language neutral')) + language_list(FALSE, TRUE),
     '#default_value' => config_get('i18n_access.settings', 'i18n_access_languages'),
     '#description' => t("This selection of languages will be connected with the 'access selected languages' permission which you can use to grant a role access to these languages at once."),
   );
-
   return system_settings_form($form);
-}
-
-/**
- * Implements hook_autoload_info().
- */
-function i18n_access_autoload_info() {
-  return array(
-  );
 }

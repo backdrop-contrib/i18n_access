@@ -4,5 +4,8 @@ package = Multilanguage
 backdrop = 1.x
 type = module
 
+configure = admin/config/regional/language/access
+
 dependencies[] = locale
 dependencies[] = translation
+dependencies[] = i18n_node
