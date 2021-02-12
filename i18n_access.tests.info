@@ -1,0 +1,6 @@
+[i18nAccessTestCase]
+name = Translation Access
+description = Test suite for the i18n_access module.
+group = i18n
+file = i18n_access.test
+
